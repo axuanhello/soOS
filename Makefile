@@ -12,7 +12,8 @@ build/int/int.o build/int/interrupt.o \
 build/lib/print.o build/lib/string.o \
 build/mm/page.o build/mm/paging.o \
 build/mm/heap.o build/disk/disk.o \
-build/fs/path.o build/fs/vfs.o
+build/fs/path.o build/fs/vfs.o \
+build/fs/fat16/fat16.o 
 
 
 .PHONY:all

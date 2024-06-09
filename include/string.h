@@ -8,6 +8,7 @@
 size_t strlen(const char* str);
 size_t strlen_with_stop(const char* str, char stop);
 int strcmp(const char* str1, const char* str2);
+char* strcpy(char* dest, const char* src);
 char* strcat(char* dest, const char* src);
 bool isnum(char c);
 int ctoi(char c);

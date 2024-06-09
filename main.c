@@ -3,6 +3,7 @@
 #include"print.h"
 #include "mm.h"
 #include "page.h"
+#include "disk.h"
 #include "vfs.h"
 
 void idt_init();
@@ -13,6 +14,10 @@ void main(void) {
     clear_screen();
     set_cursor(0);
     kheap_init();
+
+    init_fs();
+
+    search_and_init_disk();
 
     idt_init();
     // int a = 1;
@@ -54,6 +59,10 @@ void main(void) {
     if(fd)
     {
         print("file opened\n");
+        char buf[14];
+        fread(buf, 13, 1, fd);
+        buf[13] = 0x00;
+        print(buf);
     } else {
         print("file not opened\n");
     }

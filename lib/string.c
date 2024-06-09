@@ -39,6 +39,17 @@ int strcmp(const char* str1, const char* str2) {
     return str1[i] - str2[i];
 }
 
+char* strcpy(char* dest, const char* src){
+    char* d = dest;
+    while (*src) {
+        *d = *src;
+        ++d;
+        ++src;
+    }
+    *d = '\0';
+    return dest;
+}
+
 char* strcat(char* dest, const char* src) {
     while (*dest++);
     --dest;
