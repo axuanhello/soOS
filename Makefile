@@ -10,7 +10,10 @@ KERNEL_LDFLAGS=-m elf_i386 -Ttext $(KERNEL_ENTRY)
 KERNEL_OBJS=build/head.o build/main.o \
 build/int/int.o build/int/interrupt.o \
 build/lib/print.o build/lib/string.o \
-build/mm/heap.o
+build/mm/page.o build/mm/paging.o \
+build/mm/heap.o build/disk/disk.o \
+build/fs/path.o build/fs/vfs.o
+
 
 .PHONY:all
 
@@ -22,12 +25,20 @@ builddir:
 	mkdir -p build/int
 	mkdir -p build/lib
 	mkdir -p build/mm
+	mkdir -p build/disk
+	mkdir -p build/fs
+	mkdir -p build/fs/fat16
 imagedir:
 	mkdir -p image
 imagefile:./build/boot/boot.bin ./build/kernel.bin
 	dd if=/dev/zero of=image/disk.img bs=16M count=1
 	dd if=./build/boot/boot.bin of=image/disk.img conv=notrunc
 	dd if=./build/kernel.bin of=image/disk.img conv=notrunc seek=1
+	# Copy a hello.txt into the disk image
+	sudo mount -t vfat ./image/disk.img /mnt/t
+	sudo cp ./hello.txt /mnt/t
+
+	sudo umount /mnt/t
 ./build/boot/boot.bin: boot/boot.S
 	gcc $(CFLAGS) -o build/boot/boot.o boot/boot.S
 	ld  $(BOOT_LDFLAGS) -o build/boot/boot.elf build/boot/boot.o
@@ -45,7 +56,15 @@ imagefile:./build/boot/boot.bin ./build/kernel.bin
 	gcc $(CFLAGS) -o $@ $<
 ./build/lib/%.o:lib/%.c
 	gcc $(CFLAGS) -o $@ $<
-./build/mm/%.o:mm/%.c
+./build/mm/%.o:mm/%.c 
+	gcc $(CFLAGS) -o $@ $<
+./build/mm/paging.o:mm/paging.S 
+	gcc $(CFLAGS) -o $@ $<
+./build/disk/%.o:disk/%.c 
+	gcc $(CFLAGS) -o $@ $<
+./build/fs/%.o:fs/%.c 
+	gcc $(CFLAGS) -o $@ $<
+./build/fs/fat16/%.o:fs/fat16/%.c
 	gcc $(CFLAGS) -o $@ $<
 
 .PHONY:clean debug run

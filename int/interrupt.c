@@ -2,6 +2,7 @@
 #include"string.h"
 #include "io.h"
 #include "desc.h"
+#include "print.h"
 
 struct gatedesc idt[256];
 

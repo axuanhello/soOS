@@ -1,8 +1,41 @@
 #include "config.h"    
     .global _start             
     .text
-_start:
+fat16_header:
     .code16
+    # Byte Offset: 0x000
+    # Length: 3 bytes
+    # Opstring: 0XEB(jmp short) 0Xxx(start) 0X90(nop)
+    jmp _start
+    nop
+
+    # BIOS Parameter Block
+    # Byte Offset: 0x003
+    .ascii "soOSv1.0"           # OEM名称
+    .word 512                   # 每扇区字节数
+    .byte 128                   # 每个簇的扇区数
+    .word 200                   # 保留扇区数
+    .byte 2                     # FAT表数
+    .word 64                    # 根目录项数
+    .word 0x8000                # 扇区数
+    .byte 0xf8                  # 媒体描述符
+    .word 0x100                 # 每FAT扇区数
+    .word 0x20                  # 每道扇区数
+    .word 16                    # 磁头数
+    .long 0                     # 隐藏扇区数
+    .long 0                     # 扇区数
+    .long 0x773594              # 逻辑扇区总数
+
+    # Extended BIOS Parameter Block
+    # Byte Offset: 0x024
+    .byte 0x80                  # 驱动器号
+    .byte 0                     # 保留(WINNT BIT)
+    .byte 0x29                  # 扩展引导标志
+    .long 0xD105                # 卷序列号
+    .ascii "SOOS BOOTIN"        # 卷标
+    .ascii "FAT16   "           # 文件系统类型
+
+_start:
     xor %eax,%eax
     xor %ebx,%ebx
     xor %ecx,%ecx

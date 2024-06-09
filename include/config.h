@@ -12,4 +12,9 @@
 //堆表存放位置
 #define HEAP_TABLE_ADDRESS 0x00007E00
 
+#define SECTOR_SIZE 512
+
+#define MAX_FILESYSTEMS 10
+#define MAX_FILE_DESCRIPTORS 512
+
 #endif

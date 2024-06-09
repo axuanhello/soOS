@@ -1,5 +1,6 @@
 #include"types.h"
 #include"string.h"
+
 /*
 默认使用%ds:%edi
 inline int strlen(const char* str) {
@@ -15,12 +16,22 @@ inline int strlen(const char* str) {
 */
 size_t strlen(const char* str) {
     size_t result = 0;
-    while (*str != 0) {
+    while (*str != '\0') {
         ++str;
         ++result;
     }
     return result;
 }
+
+size_t strlen_with_stop(const char* str, char stop){
+    size_t result = 0;
+    while (*str != '\0' && *str != stop) {
+        ++str;
+        ++result;
+    }
+    return result;
+}
+
 
 int strcmp(const char* str1, const char* str2) {
     size_t i = 0;
@@ -69,4 +80,37 @@ int memcmp(const void* str1, const void* str2, size_t n) {
         }
     }
     return 0;
+}
+
+int ctoi(char c)
+{
+    return c - '0';
+}
+
+bool isnum(char c)
+{
+    return c >= '0' && c <= '9';
+}
+
+char tolower(char c)
+{
+    if(c >= 'A' && c <= 'Z')
+    {
+        return c + 32;
+    }
+    return c;
+}
+
+int strcmp_prefix(const char* str1, const char* str2, size_t n)
+{
+    size_t i = 0;
+    while ((str1[i] == str2[i]) && i < n) { ++i; }
+    return str1[i] - str2[i];
+}
+
+int strcmp_prefix_ignore_case(const char* str1, const char* str2, size_t n)
+{
+    size_t i = 0;
+    while ((tolower(str1[i]) == tolower(str2[i])) && i < n) { ++i; }
+    return tolower(str1[i]) - tolower(str2[i]);
 }
