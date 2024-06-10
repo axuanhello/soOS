@@ -59,6 +59,7 @@ struct extended_bios_parameter_block{
     u8 system_id[8];
 } __attribute__((packed));
 
+// fat16_entry represents a file
 struct fat16_entry{
     u8 name[8];
     u8 ext[3];
@@ -75,6 +76,7 @@ struct fat16_entry{
     u32 size;
 } __attribute__((packed));
 
+// Contains the FAT16 filesystem information
 struct fat16_fs_info{
     struct fat_header header;
     union{
@@ -82,15 +84,23 @@ struct fat16_fs_info{
     } shared;
 };
 
+// fat16_directory represents a directory
 struct fat16_directory{
-    struct fat16_entry* entries;
-    u8 totel_entries;
-    u8 sector_begin;
-    u8 sector_end;
+    struct fat16_entry* entries; // Point to the first entry in this directory
+    u8 totel_entries; // Total entries in this directory
+    u8 sector_begin; // The first sector of this directory
+    u8 sector_end; // The last sector of this directory
 };
 
+/** 
+ * A fat16_item represents a file or directory
+ * @param directory struct fat16_directory* - The directory that the item is pointing to(union shared with entry)
+ * @param entry struct fat16_entry* - The entry that the item is pointing to(union shared with directory)
+ * @param type FAT16_ITEM_TYPE - The type of the item
+ * 
+ */
 struct fat16_item{
-    union {
+    union { // Use union to save memory
         struct fat16_directory* directory;
         struct fat16_entry* entry;
     };
@@ -98,7 +108,13 @@ struct fat16_item{
     FAT16_ITEM_TYPE type;
 };
 
-struct fat16_item_descriptor{
+/** 
+ * fat16_file_descriptor represents a file descriptor
+ * @param item struct fat16_item* - The item that the file descriptor is pointing to
+ * @param offset uint32_t - The current offset(for seeking) of the file 
+ * 
+ */
+struct fat16_file_descriptor{
     struct fat16_item* item;
     u32 offset;
 };
@@ -107,9 +123,13 @@ struct fat16_data{
     struct fat16_fs_info header;
     struct fat16_directory root;
 
+    // Stream for reading cluster data
     struct disk_stream* read_cluster_streamer;
+
+    // Stream the file allocation table
     struct disk_stream* read_fat_streamer;
 
+    // Stream for reading directory data
     struct disk_stream* directory_streamer;
 };
 
@@ -127,6 +147,12 @@ struct filesystem* init_fat16()
     return &fat16_fs;
 }
 
+/**
+ * Initialize the fat16_data structure
+ * Create the disk streamers for reading cluster, fat and directory data
+ * @param[in] disk struct disk* - The disk that the filesystem is on
+ * @param[in,out] data struct fat16_data* - The fat16_data structure to initialize
+ */
 void init_fat16_data(struct disk* disk, struct fat16_data* data)
 {
     memset(data, 0, sizeof(struct fat16_data));
@@ -136,11 +162,21 @@ void init_fat16_data(struct disk* disk, struct fat16_data* data)
     data->directory_streamer = create_disk_stream(disk->disk_id);
 }
 
+/**
+ * Convert a sector to an address
+ * @param[in] disk struct disk* - The disk that the filesystem is on
+ * @param[in] sector int - The sector to convert
+ */
 int sector_to_address(struct disk* disk, int sector)
 {
     return sector * disk->sector_size;
 }
 
+/**
+ * Get total entries in a directory
+ * @param[in] disk struct disk* - The disk that the filesystem is on
+ * @param[in] start_sector u32 - The sector to start reading the directory from
+ */
 int get_total_entries(struct disk* disk, u32 start_sector)
 {
     struct fat16_entry dir;
@@ -211,12 +247,17 @@ int get_root_dir(struct disk* disk, struct fat16_data* data, struct fat16_direct
     directory->entries = dir;
     directory->totel_entries = total_entries;
     directory->sector_begin = root_dir_sector_pos;
-    directory->sector_end = root_dir_sector_pos + total_sectors - 1; // Point to the last sector
+    directory->sector_end = root_dir_sector_pos + (root_dir_size / disk->sector_size); // Point to the last sector
 
     return 0;
 }
 
-
+/**
+ * Resolve the fat16 filesystem
+ * @param[in] disk struct disk* - The disk that the filesystem is on
+ * @return int - 0 if the filesystem is resolved successfully, otherwise return an error code
+ 
+ */
 int resolve_fat16(struct disk* disk)
 {
     struct fat16_data* data = (struct fat16_data*) kmalloc(sizeof(struct fat16_data));
@@ -301,7 +342,12 @@ int resolve_fat16(struct disk* disk)
     return 0;
 }
 
-
+/**
+ * Convert a fat16 filename to a string
+ * @param[in] in const char* - The fat16 filename to convert
+ * @param[out] out char** - The double pointer to the output buffer to store the converted filename
+ 
+ */
 void fat16_filename_to_string(const char* in, char** out) {
     // 循环遍历输入字符串，直到遇到空字符（0x00）或空格（0x20）
     while (*in != 0x00 && *in != 0x20) {
@@ -316,11 +362,18 @@ void fat16_filename_to_string(const char* in, char** out) {
     }
 }
 
+/**
+ * Get the full filename of a fat16 entry
+ * @param[in] entry struct fat16_entry* - The fat16 entry to get the filename from
+ * @param[out] out char* - The output buffer to store the filename
+ * @param[in] max_len int - The maximum length of the output buffer
+ 
+ */
 void get_full_filename(struct fat16_entry* entry, char* out, int max_len)
 {
     memset(out, 0x00, max_len);
     fat16_filename_to_string((const char*)entry->name, &out);
-    if(entry->ext[0] != 0x00 && entry->ext[0] != 0x20)
+    if(entry->ext[0] != 0x00 && entry->ext[0] != 0x20) // If the filename's extension is not empty
     {
         *out++ = '.'; // Append extension name
         fat16_filename_to_string((const char*)entry->ext, &out);
@@ -536,7 +589,14 @@ struct fat16_item* create_fat_item_for_directory(struct disk* disk, struct fat16
     return item;
 }
 
-struct fat16_item* find_item_in_directory(struct disk* disk, struct fat16_directory* dir, const char* name)
+/**
+ * Find an item in the root directory
+ * @param[in] disk struct disk* - The disk that the filesystem is on
+ * @param[in] dir struct fat16_directory* - The directory to search in
+ * @param[in] name const char* - The name of the item to find
+ 
+ */
+struct fat16_item* find_item_in_root_directory(struct disk* disk, struct fat16_directory* dir, const char* name)
 {
     for (int i = 0; i < dir->totel_entries; i++)
     {
@@ -552,26 +612,32 @@ struct fat16_item* find_item_in_directory(struct disk* disk, struct fat16_direct
     return 0;
 }
 
-struct fat16_item* get_directory_item(struct disk* disk, struct path_part* path)
+/**
+ * Get the item in the directory
+ * @param[in] disk struct disk* - The disk that the filesystem is on
+ * @param[in] path struct path_part* - The path to the item
+ * @return struct fat16_item* - The item in the root directory
+ */
+struct fat16_item* get_root_directory_item(struct disk* disk, struct path_part* path)
 {
     struct fat16_data* data = disk->data;
-    struct fat16_item* root_item = find_item_in_directory(disk, &data->root, path->part);
+    struct fat16_item* root_item = find_item_in_root_directory(disk, &data->root, path->part); // Find the item in the root directory
     if(!root_item)
     {
         return 0;
     }
 
-    struct path_part* next = path->next;
-    struct fat16_item* current = root_item;
+    struct path_part* next = path->next; // Get the next part of the path
+    struct fat16_item* current = root_item; // Set the current item to the root item(Maybe a directory or a file)
     while(next)
     {
-        if(current->type != FAT16_ITEM_TYPE_DIRECTORY)
+        if(current->type != FAT16_ITEM_TYPE_DIRECTORY) // If the current item is not a directory and has a subdirectory, return 0
         {
             free_fat16_item(current);
             return 0;
         }
 
-        struct fat16_item* next_item = find_item_in_directory(disk, current->directory, next->part);
+        struct fat16_item* next_item = find_item_in_root_directory(disk, current->directory, next->part); // Find the next item in the current directory
         if(!next_item)
         {
             free_fat16_item(current);
@@ -579,44 +645,44 @@ struct fat16_item* get_directory_item(struct disk* disk, struct path_part* path)
         }
 
         free_fat16_item(current);
-        current = next_item;
+        current = next_item; // Set the current item to the next item
         next = next->next;
     }
 
-    return current;
+    return current; // Return the current item
 }
 
 void* fat16_open_file(struct disk* disk, struct path_part* path, FILE_OPEN_MODE mode)
 {
-    struct fat16_item* item = get_directory_item(disk, path);
+    struct fat16_item* item = get_root_directory_item(disk, path); // Get the item in the root directory
     if(!item)
     {
         return 0;
     }
 
-    if(item->type != FAT16_ITEM_TYPE_FILE)
+    if(item->type != FAT16_ITEM_TYPE_FILE) // If the item is not a file, free the invalid item and return 0
     {
         free_fat16_item(item);
         return 0;
     }
 
-    struct fat16_item_descriptor* fd = (struct fat16_item_descriptor*)kmalloc(sizeof(struct fat16_item_descriptor));
+    struct fat16_file_descriptor* fd = (struct fat16_file_descriptor*)kmalloc(sizeof(struct fat16_file_descriptor));
     if(!fd)
     {
         free_fat16_item(item);
         return 0;
     }
 
-    fd->item = item;
-    fd->offset = 0;
+    fd->item = item; // Set the item of the file descriptor
+    fd->offset = 0; // Set the offset of the file descriptor to 0(Start reading from the beginning of the file)
 
     return fd;
 }
 
 int fat16_read_file(struct disk* disk, void* fd, u32 size, u32 nb, char* out)
 {
-    struct fat16_item_descriptor* descriptor = (struct fat16_item_descriptor*)fd;
-    struct fat16_item* entry = descriptor->item->entry;
+    struct fat16_file_descriptor* descriptor = (struct fat16_file_descriptor*)fd;
+    struct fat16_entry* entry = descriptor->item->entry;
     int offset = descriptor->offset;
     for(u32 i = 0; i < nb; i ++ )
     {
@@ -632,7 +698,7 @@ int fat16_read_file(struct disk* disk, void* fd, u32 size, u32 nb, char* out)
     return nb;
 }
 
-static void fat16_free_file_descriptor(struct fat16_item_descriptor* desc)
+static void fat16_free_file_descriptor(struct fat16_file_descriptor* desc)
 {
     free_fat16_item(desc->item);
     kfree(desc);
@@ -642,7 +708,7 @@ static void fat16_free_file_descriptor(struct fat16_item_descriptor* desc)
 int fat16_stat(struct disk* disk, void* private, struct file_stat* stat)
 {
     int res = 0; 
-    struct fat16_item_descriptor* descriptor = (struct fat_item_descriptor*) private;
+    struct fat16_file_descriptor* descriptor = (struct fat16_file_descriptor*) private;
     struct fat16_item* desc_item = descriptor->item;
     if (desc_item->type != FAT16_ITEM_TYPE_FILE)
     {
@@ -663,6 +729,6 @@ int fat16_stat(struct disk* disk, void* private, struct file_stat* stat)
 
 int fat16_close(void* private)
 {
-    fat16_free_file_descriptor((struct fat16_item_descriptor*) private);
+    fat16_free_file_descriptor((struct fat16_file_descriptor*) private);
     return 0;
 }

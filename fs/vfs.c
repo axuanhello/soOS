@@ -143,7 +143,7 @@ int fopen(const char* filename, const char* mode)
         return -1;
     }
 
-    struct disk* disk = get_disk(root->drive_no);
+    struct disk* disk = get_disk(root->drive_no); // Get the disk
     if(!disk)
     {
         return -1;
@@ -154,13 +154,13 @@ int fopen(const char* filename, const char* mode)
         return -1;
     }
 
-    FILE_OPEN_MODE open_mode = get_file_open_mode(mode);
+    FILE_OPEN_MODE open_mode = get_file_open_mode(mode); // Get the open mode from "mode"
     if(open_mode == FILE_MODE_INVALID)
     {
         return -1;
     }
 
-    void* data_to_descriptor = (*disk->filesystem->open_file)(disk, root->first_part, open_mode);
+    void* data_to_descriptor = (*disk->filesystem->open_file)(disk, root->first_part, open_mode); // Open the file using the filesystem
 
     struct file_descriptor* fd = 0;
     if(get_new_file_descriptor(&fd) != 0)
@@ -168,9 +168,9 @@ int fopen(const char* filename, const char* mode)
         return -1;
     }
 
-    fd->fs = disk->filesystem;
-    fd->data = data_to_descriptor;
-    fd->disk = disk;
+    fd->fs = disk->filesystem; // Points to the filesystem
+    fd->data = data_to_descriptor; // Points to the file descriptor provided by the filesystem(contains the fat item and the r/w pointer location)
+    fd->disk = disk; // Points to the disk
     return fd->index;
 }
 

@@ -16,6 +16,10 @@ struct disk{
     void* data;
 };
 
+
+// Represents a stream of data from a disk. 
+// @param pos pos is the current position in the stream
+// @param disk disk is the pointer to disk that the stream is reading from
 struct disk_stream
 {
     int pos;

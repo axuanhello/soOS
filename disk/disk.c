@@ -38,9 +38,11 @@ int read_disk_sector(int lba, int total, void* buf)
         // Wait for the disk to be ready
         // PIO data transfer is done by the CPU, so we need to wait for the disk to be ready
         char status = inb(0x1F7);
-        while (!(status & 0x80))
+        //int cnt = 0;
+        while (!(status & 0x08))
         {
             status = inb(0x1F7);
+            
         }
 
         for (int i = 0; i < 256; i++)

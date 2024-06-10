@@ -55,6 +55,13 @@ struct filesystem
     char name[20];
 };
 
+/**
+ * File descriptor structure
+ * @param index The file descriptor index
+ * @param fs The filesystem that the file descriptor is using
+ * @param data The private data for the file descriptor(points to the filesystem's file descriptor, which contains fat item and r/w pointer location)
+ * @param disk The disk that the file descriptor is using
+ */
 struct file_descriptor
 {
     // File descriptor index

@@ -6,6 +6,6 @@ b *0x7c00
 c
 add-symbol-file build/kernel.elf
 
-b fs/fat16/fat16.c:220
+b main.c:64
 set architecture i386
 c

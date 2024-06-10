@@ -1,6 +1,6 @@
-#include"io.h"
-#include"string.h"
-#include"print.h"
+#include "io.h"
+#include "string.h"
+#include "print.h"
 #include "mm.h"
 #include "page.h"
 #include "disk.h"
@@ -8,9 +8,10 @@
 
 void idt_init();
 
-static struct page_directory* kernel_dir = 0;
+static struct page_directory *kernel_dir = 0;
 
-void main(void) {
+void main(void)
+{
     clear_screen();
     set_cursor(0);
     kheap_init();
@@ -44,10 +45,10 @@ void main(void) {
 
     enable_paging();
 
-    char* ptr = kmalloc(4096); 
-    set_paging(get_page_directory(kernel_dir), (void*)0x1000, (uint32_t)ptr | PAGE_ACCESS_FROM_ALL | PAGE_IS_PRESENT | PAGE_IS_WRITABLE);
+    char *ptr = kmalloc(4096);
+    set_paging(get_page_directory(kernel_dir), (void *)0x1000, (uint32_t)ptr | PAGE_ACCESS_FROM_ALL | PAGE_IS_PRESENT | PAGE_IS_WRITABLE);
 
-    char* ptr2 = (char*)0x1000;
+    char *ptr2 = (char *)0x1000;
     *ptr2 = 'a';
     ptr2[1] = 'b';
     ptr2[2] = 'c';
@@ -63,8 +64,17 @@ void main(void) {
         fread(buf, 13, 1, fd);
         buf[13] = 0x00;
         print(buf);
-    } else {
+    } else if (fd == -1){
         print("file not opened\n");
     }
-    for(;;);
+
+    // struct disk_stream *stream = create_disk_stream(0);
+    // seek_disk_stream(stream, 0x21c);
+    // unsigned char c=0;
+    
+    // read_disk_stream(stream, 1, &c);
+    // print(c);
+
+    for (;;)
+    ;
 }
