@@ -23,7 +23,6 @@ fat16_header:
     .word 0x20                  # 每道扇区数
     .word 16                    # 磁头数
     .long 0                     # 隐藏扇区数
-    .long 0                     # 扇区数
     .long 0x773594              # 逻辑扇区总数
 
     # Extended BIOS Parameter Block

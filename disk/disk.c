@@ -145,7 +145,7 @@ int read_disk_stream(struct disk_stream* stream, int total, void* out)
     if(total > SECTOR_SIZE)
     {
         // Iterate to read the next sector
-        return read_disk_stream(stream, total - total_to_read, (char*)out + total_to_read);
+        return read_disk_stream(stream, total - total_to_read, (char*)out);
     }
 
     return res;

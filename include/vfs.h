@@ -21,11 +21,26 @@ enum
     FILE_MODE_INVALID
 };
 
+enum
+{
+    FILE_STAT_READ_ONLY = 0b00000001
+};
+
+typedef unsigned int FILE_STAT_FLAGS;
+
 struct disk;
 typedef void*(*FS_OPEN_FILE)(struct disk* disk, struct path_part* path, FILE_OPEN_MODE mode);
 typedef int (*FS_RESOLVE_FUNC)(struct disk* disk);
 typedef int (*FS_READ_FILE)(struct disk* disk, void* data, uint32_t size, uint32_t count, char* out);
 typedef int (*FS_CLOSE_FUNCTION)(void* private);
+
+struct file_stat
+{
+    FILE_STAT_FLAGS flags;
+    uint32_t filesize;
+};
+
+typedef int (*FS_STAT_FUNCTION)(struct disk* disk, void* private, struct file_stat* stat);
 
 struct filesystem
 {
@@ -34,6 +49,7 @@ struct filesystem
     FS_READ_FILE read_file;
     FS_CLOSE_FUNCTION close;
     FS_RESOLVE_FUNC resolve;
+    FS_STAT_FUNCTION stat;
 
     // Name the filesystem
     char name[20];
@@ -55,6 +71,8 @@ struct file_descriptor
 void init_fs();
 int fopen(const char* filename, const char* mode);
 int fread(void* ptr, uint32_t size, uint32_t count, int fd);
+int fstat(int fd, struct file_stat* stat);
+
 int fclose(int fd);
 void insert_filesystem(struct filesystem* fs);
 struct filesystem* resolve_fs(struct disk* disk);

@@ -196,6 +196,21 @@ static void file_free_descriptor(struct file_descriptor* desc)
     kfree(desc);
 }
 
+int fstat(int fd, struct file_stat* stat)
+{
+    int res = 0;
+    struct file_descriptor* desc = get_file_descriptor(fd);
+    if (!desc)
+    {
+        res = -EIO;
+        goto out;
+    }
+
+    res = desc->fs->stat(desc->disk, desc->data, stat);
+out:
+    return res;
+}
+
 int fclose(int fd)
 {
     int res = 0;
