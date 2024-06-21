@@ -17,11 +17,11 @@ fat16_header:
     .word 200                   # 保留扇区数
     .byte 2                     # FAT表数
     .word 64                    # 根目录项数
-    .word 0x8000                # 扇区数
+    .word 0x00                  # 扇区数
     .byte 0xf8                  # 媒体描述符
     .word 0x100                 # 每FAT扇区数
     .word 0x20                  # 每道扇区数
-    .word 16                    # 磁头数
+    .word 64                    # 磁头数
     .long 0                     # 隐藏扇区数
     .long 0x773594              # 逻辑扇区总数
 

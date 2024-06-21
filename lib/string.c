@@ -125,3 +125,10 @@ int strcmp_prefix_ignore_case(const char* str1, const char* str2, size_t n)
     while ((tolower(str1[i]) == tolower(str2[i])) && i < n) { ++i; }
     return tolower(str1[i]) - tolower(str2[i]);
 }
+
+int strcmp_ignore_case(const char* str1, const char* str2)
+{
+    size_t i = 0;
+    while ((tolower(str1[i]) == tolower(str2[i]))) { ++i; }
+    return tolower(str1[i]) - tolower(str2[i]);
+}

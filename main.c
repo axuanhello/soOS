@@ -59,10 +59,11 @@ void main(void)
     int fd = fopen("0:/hello.txt", "r");
     if(fd)
     {
+        // print(fd +'0');
         print("file opened\n");
-        char buf[14];
-        fread(buf, 13, 1, fd);
-        buf[13] = 0x00;
+        char buf[8];
+        fread(buf, 7, 1, fd);
+        buf[7] = 0x00;
         print(buf);
     } else if (fd == -1){
         print("file not opened\n");

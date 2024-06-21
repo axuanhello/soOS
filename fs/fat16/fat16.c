@@ -13,8 +13,8 @@
 #define u32 uint32_t
 
 typedef char FAT16_ITEM_TYPE;
-#define FAT16_ITEM_TYPE_FILE 0
-#define FAT16_ITEM_TYPE_DIRECTORY 1
+#define FAT16_ITEM_TYPE_FILE 1
+#define FAT16_ITEM_TYPE_DIRECTORY 0
 
 // FAT16目录项attr属性bitmask
 #define FAT16_FILE_READ_ONLY 0x01
@@ -87,9 +87,9 @@ struct fat16_fs_info{
 // fat16_directory represents a directory
 struct fat16_directory{
     struct fat16_entry* entries; // Point to the first entry in this directory
-    u8 totel_entries; // Total entries in this directory
-    u8 sector_begin; // The first sector of this directory
-    u8 sector_end; // The last sector of this directory
+    int totel_entries; // Total entries in this directory
+    int sector_begin; // The first sector of this directory
+    int sector_end; // The last sector of this directory
 };
 
 /** 
@@ -304,25 +304,25 @@ int resolve_fat16(struct disk* disk)
     // .long 0xD105                # 卷序列号
     // .ascii "SOOS BOOTIN"        # 卷标
     // .ascii "FAT16   "           # 文件系统类型
-    data->header.header.bytes_per_sector = 512;
-    data->header.header.sectors_per_cluster = 128;
-    data->header.header.reserved_sectors = 200;
-    data->header.header.fat_count = 2;
-    data->header.header.root_entry_count = 64;
-    data->header.header.total_sectors = 0x8000;
-    data->header.header.media_type = 0xf8;
-    data->header.header.sectors_per_fat = 0x100;
-    data->header.header.sectors_per_track = 0x20;
-    data->header.header.head_count = 16;
-    data->header.header.hidden_sectors = 0;
-    data->header.header.total_sectors_large = 0x773594;
+    // data->header.header.bytes_per_sector = 512;
+    // data->header.header.sectors_per_cluster = 128;
+    // data->header.header.reserved_sectors = 200;
+    // data->header.header.fat_count = 2;
+    // data->header.header.root_entry_count = 64;
+    // data->header.header.total_sectors = 0x8000;
+    // data->header.header.media_type = 0xf8;
+    // data->header.header.sectors_per_fat = 0x100;
+    // data->header.header.sectors_per_track = 0x20;
+    // data->header.header.head_count = 16;
+    // data->header.header.hidden_sectors = 0;
+    // data->header.header.total_sectors_large = 0x773594;
 
-    data->header.shared.ebpb.drive_number = 0x80;
-    data->header.shared.ebpb.reserved = 0;
-    data->header.shared.ebpb.boot_signature = 0x29;
-    data->header.shared.ebpb.volume_id = 0xD105;
-    strcpy(data->header.shared.ebpb.volume_label, "SOOS BOOTIN");
-    strcpy(data->header.shared.ebpb.system_id, "FAT16   ");
+    // data->header.shared.ebpb.drive_number = 0x80;
+    // data->header.shared.ebpb.reserved = 0;
+    // data->header.shared.ebpb.boot_signature = 0x29;
+    // data->header.shared.ebpb.volume_id = 0xD105;
+    // strcpy(data->header.shared.ebpb.volume_label, "SOOS BOOTIN");
+    // strcpy(data->header.shared.ebpb.system_id, "FAT16   ");
 
     u8 signature = data->header.shared.ebpb.boot_signature;
     if(signature != 0x28 && signature != 0x29)
@@ -417,7 +417,7 @@ static u32 get_first_sector(struct fat16_data* data)
 static int get_entry(struct disk* disk, int cluster)
 {
     struct fat16_data* data = (struct fat16_data*)disk->data;
-    struct disk_stream* stream = data->read_cluster_streamer;
+    struct disk_stream* stream = data->read_fat_streamer;
     if(!stream)
     {
         return -EIO;
@@ -430,7 +430,8 @@ static int get_entry(struct disk* disk, int cluster)
     }
 
     u16 result = 0;
-    return read_disk_stream(stream, sizeof(u16), &result) == 0 ? result : -EIO;
+
+    return read_disk_stream(stream, sizeof(u16), &result);
 }
 
 /**
@@ -471,38 +472,37 @@ static int get_cluster_for_offset(struct disk* disk, int starting_cluster, int o
 static int read_data_from_stream(struct disk* disk, struct disk_stream* stream, int cluster, int offset, int total, void* out)
 {
     struct fat16_data* data = disk->data;
-    int cluster_size = data->header.header.sectors_per_cluster + disk->sector_size;
+    int cluster_size = data->header.header.sectors_per_cluster * disk->sector_size;
     int cluster_to_use = get_cluster_for_offset(disk, cluster, offset);
     if (cluster_to_use < 0)
     {
         return cluster_to_use;
     }
 
-    int sector = cluster_to_sector(data, cluster_to_use);
-    int sector_offset = offset % cluster_size;
-    int sector_size = total; 
-    // Read the entire cluster if the total is larger than the cluster size
-    if (sector_size > cluster_size)
-    {
-        sector_size = cluster_size;
-    }
+    int cluster_offset = offset % cluster_size;
 
-    if (seek_disk_stream(stream, sector_to_address(disk, sector) * sector_offset) != 0)
+    int start_sector = cluster_to_sector(data, cluster_to_use);
+    int start_pos = (start_sector * disk->sector_size) + cluster_offset;
+    int total_to_read = total > cluster_size ? cluster_size : total;
+
+    if (seek_disk_stream(stream, start_pos) != 0)
     {
         return -EIO;
     }
 
-    if(read_disk_stream(stream, sector_size, out) != 0)
+    if(read_disk_stream(stream, total_to_read, out) != 0)
     {
         return -EIO;
     }
 
-    total -= sector_size;
+    total -= total_to_read;
     if (total > 0)
     {
         // Read the next cluster
-        return read_data_from_stream(disk, stream, cluster_to_use, 0, total, out + sector_size);
+        return read_data_from_stream(disk, stream, cluster, offset + total_to_read, total, out + total_to_read);
     }
+
+    return 0;
 }
 
 static int read_internal_data(struct disk* disk, int cluster, int offset, int total, void* out)
@@ -603,7 +603,7 @@ struct fat16_item* find_item_in_root_directory(struct disk* disk, struct fat16_d
         struct fat16_entry* entry = &dir->entries[i];
         char filename[MAX_PATH_LEN];
         get_full_filename(entry, filename, sizeof(filename));
-        if(strcmp(filename, name) == 0)
+        if(strcmp_prefix_ignore_case(filename, name, sizeof(name)) == 0)
         {
             return create_fat_item_for_directory(disk, entry);
         }

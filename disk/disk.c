@@ -140,7 +140,7 @@ int read_disk_stream(struct disk_stream* stream, int total, void* out)
     int total_to_read = total > SECTOR_SIZE? SECTOR_SIZE: total;
     for(int i = 0; i < total_to_read; i++)
     {
-        ((char*)out)[i] = buf[offset + i];
+        *(char*)out++ = buf[offset + i]; // MOD 06-21: out指针也要跟着走
     }
 
     stream->pos += total_to_read;
