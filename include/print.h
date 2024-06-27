@@ -23,5 +23,6 @@ void put_uint(unsigned int num);
 void put_str(const char* str);
 void print(const char* str);
 void clear_screen();
+void panic(char *msg);
 
 #endif

@@ -280,50 +280,6 @@ int resolve_fat16(struct disk* disk)
         return -EIO;
     }
 
-    // # BIOS Parameter Block
-    // # Byte Offset: 0x003
-    // .ascii "soOSv1.0"           # OEM名称
-    // .word 512                   # 每扇区字节数
-    // .byte 128                   # 每个簇的扇区数
-    // .word 200                   # 保留扇区数
-    // .byte 2                     # FAT表数
-    // .word 64                    # 根目录项数
-    // .word 0x8000                # 扇区数
-    // .byte 0xf8                  # 媒体描述符
-    // .word 0x100                 # 每FAT扇区数
-    // .word 0x20                  # 每道扇区数
-    // .word 16                    # 磁头数
-    // .long 0                     # 隐藏扇区数
-    // .long 0x773594              # 逻辑扇区总数
-
-    // # Extended BIOS Parameter Block
-    // # Byte Offset: 0x024
-    // .byte 0x80                  # 驱动器号
-    // .byte 0                     # 保留(WINNT BIT)
-    // .byte 0x29                  # 扩展引导标志
-    // .long 0xD105                # 卷序列号
-    // .ascii "SOOS BOOTIN"        # 卷标
-    // .ascii "FAT16   "           # 文件系统类型
-    // data->header.header.bytes_per_sector = 512;
-    // data->header.header.sectors_per_cluster = 128;
-    // data->header.header.reserved_sectors = 200;
-    // data->header.header.fat_count = 2;
-    // data->header.header.root_entry_count = 64;
-    // data->header.header.total_sectors = 0x8000;
-    // data->header.header.media_type = 0xf8;
-    // data->header.header.sectors_per_fat = 0x100;
-    // data->header.header.sectors_per_track = 0x20;
-    // data->header.header.head_count = 16;
-    // data->header.header.hidden_sectors = 0;
-    // data->header.header.total_sectors_large = 0x773594;
-
-    // data->header.shared.ebpb.drive_number = 0x80;
-    // data->header.shared.ebpb.reserved = 0;
-    // data->header.shared.ebpb.boot_signature = 0x29;
-    // data->header.shared.ebpb.volume_id = 0xD105;
-    // strcpy(data->header.shared.ebpb.volume_label, "SOOS BOOTIN");
-    // strcpy(data->header.shared.ebpb.system_id, "FAT16   ");
-
     u8 signature = data->header.shared.ebpb.boot_signature;
     if(signature != 0x28 && signature != 0x29)
     {
@@ -399,21 +355,43 @@ struct fat16_entry* clone_fat16_entry(struct fat16_entry* entry, int size)
     return entry_clone;
 }
 
+/**
+ * @brief Get the first cluster of a fat16 entry
+ * @param entry struct fat16_entry* - The fat16 entry to get the first cluster from
+ * @return u32 - The first cluster of the entry
+ */
 static u32 get_first_cluster(struct fat16_entry* entry)
 {
     return (entry->first_cluster_high) | entry->first_cluster_low;
 }
 
+/**
+ * @brief Get the sector of a cluster(usually a file's starting cluster);
+ * @warning The cluster must start from 2
+ * @param data struct fat16_data* - The fat16 data structure
+ * @param cluster int - The cluster to get the sector from
+ * @return int - The sector of the cluster
+
+ */
 static int cluster_to_sector(struct fat16_data* data, int cluster)
 {
     return data->root.sector_end + ((cluster - 2) * data->header.header.sectors_per_cluster);
 }
 
+/**
+ * @brief get the first sector of a fat16 data structure
+ * @param data struct fat16_data* - The fat16 data structure
+ * @return u32 - The first sector of the fat16 data structure
+ 
+ */
 static u32 get_first_sector(struct fat16_data* data)
 {
     return data->header.header.reserved_sectors;
 }
 
+/**
+ * @brief get the
+ */
 static int get_entry(struct disk* disk, int cluster)
 {
     struct fat16_data* data = (struct fat16_data*)disk->data;
@@ -424,18 +402,26 @@ static int get_entry(struct disk* disk, int cluster)
     }
 
     u32 fat_position = data->header.header.reserved_sectors * disk->sector_size;
-    if(seek_disk_stream(stream, fat_position * (cluster * FAT16_ENRTY_SIZE)) != 0)
+    if(seek_disk_stream(stream, fat_position + (cluster * FAT16_ENRTY_SIZE)) != 0) // MOD: fat_pos + (xxx)
     {
         return -EIO;
     }
 
     u16 result = 0;
 
-    return read_disk_stream(stream, sizeof(u16), &result);
+    if(read_disk_stream(stream, sizeof(u16), &result) !=0){
+        return -EIO;
+    }
+
+    return result;
 }
 
 /**
- *
+ * @brief Get the cluster to use based on the cluster and offset
+ * @param disk struct disk* - The disk that the filesystem is on
+ * @param cluster int - The current cluster
+ * @return int - The next cluster in the chain
+ 
  */
 static int get_cluster_for_offset(struct disk* disk, int starting_cluster, int offset)
 { 
@@ -469,6 +455,18 @@ static int get_cluster_for_offset(struct disk* disk, int starting_cluster, int o
     return cluster_to_use;
 }
 
+/**
+ * @brief Read data from a stream
+ * @param disk struct disk* - The disk that the filesystem is on
+ * @param stream struct disk_stream* - The stream to read from
+ * @param cluster int - The cluster to read from
+ * @param offset int - The offset within the cluster to read from
+ * @param total int - The total bytes to read
+ * @param out void* - The output buffer to store the read data
+ * @return int - 0 if the data is read successfully, otherwise return an error code
+ * @attention If the total bytes to read is greater than the cluster size, the function will find the next cluster in the FAT to read.
+ 
+ */
 static int read_data_from_stream(struct disk* disk, struct disk_stream* stream, int cluster, int offset, int total, void* out)
 {
     struct fat16_data* data = disk->data;
@@ -505,6 +503,16 @@ static int read_data_from_stream(struct disk* disk, struct disk_stream* stream, 
     return 0;
 }
 
+/**
+ * @brief Read internal data from a cluster
+ * @param disk struct disk* - The disk that the filesystem is on
+ * @param cluster int - The cluster to read from
+ * @param offset int - The offset within the cluster to read from
+ * @param total int - The total bytes to read
+ * @param out void* - The output buffer to store the read data
+ * @return int - 0 if the data is read successfully, otherwise return an error code
+
+ */
 static int read_internal_data(struct disk* disk, int cluster, int offset, int total, void* out)
 {
     struct fat16_data* data = disk->data;
@@ -539,6 +547,13 @@ void free_fat16_directory(struct fat16_directory* dir){
     kfree(dir);
 }
 
+/**
+ * @brief Load a fat16 directory from a fat16 entry
+ * @param disk struct disk* - The disk that the filesystem is on
+ * @param entry struct fat16_entry* - The entry to load the directory from
+ * @return struct fat16_directory* - The loaded directory
+ 
+ */
 struct fat16_directory* load_fat16_directory(struct disk* disk, struct fat16_entry* entry)
 {
     struct fat16_directory* dir = (struct fat16_directory*)kmalloc(sizeof(struct fat16_directory));
@@ -547,11 +562,17 @@ struct fat16_directory* load_fat16_directory(struct disk* disk, struct fat16_ent
         return 0;
     }
 
-    int cluster = get_first_cluster(entry);
-    int sector = cluster_to_sector(disk->data, cluster);
+    // Get the first cluster of the directory 
+    // The first cluster is the starting cluster of a new directory(like the root directory)
+    // Subdirectory is essentially an array of fat16 entries
+    int cluster = get_first_cluster(entry); 
+
+    int sector = cluster_to_sector(disk->data, cluster); // Get the sector of the cluster
     int total_entries = get_total_entries(disk, sector);
     dir->totel_entries = total_entries;
     int dir_size = total_entries * sizeof(struct fat16_entry);
+
+    // Load the entire directory into memory
     dir->entries = (struct fat16_entry*)kmalloc(dir_size);
     if(!dir->entries)
     {

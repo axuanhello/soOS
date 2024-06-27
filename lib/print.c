@@ -148,3 +148,11 @@ void clear_screen() {
         write_video(i, 0);
     }
 }
+
+void panic(char *msg)
+{
+    print("Panic: ");
+    print(msg);
+    for (;;)
+        ;
+}

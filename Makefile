@@ -13,7 +13,9 @@ build/lib/print.o build/lib/string.o \
 build/mm/page.o build/mm/paging.o \
 build/mm/heap.o build/disk/disk.o \
 build/fs/path.o build/fs/vfs.o \
-build/fs/fat16/fat16.o 
+build/fs/fat16/fat16.o build/gdt/gdt.o \
+build/gdt/gdt_c.o build/task/load_tss.o \
+build/task/tss.o
 
 
 .PHONY:all
@@ -29,6 +31,8 @@ builddir:
 	mkdir -p build/disk
 	mkdir -p build/fs
 	mkdir -p build/fs/fat16
+	mkdir -p build/gdt
+	mkdir -p build/task
 imagedir:
 	mkdir -p image
 imagefile:./build/boot/boot.bin ./build/kernel.bin
@@ -67,6 +71,14 @@ imagefile:./build/boot/boot.bin ./build/kernel.bin
 	gcc $(CFLAGS) -o $@ $<
 ./build/fs/fat16/%.o:fs/fat16/%.c
 	gcc $(CFLAGS) -o $@ $<
+./build/gdt/gdt.o:gdt/gdt.S
+	gcc $(CFLAGS) -o $@ $<
+./build/gdt/%.o:gdt/%.c
+	gcc $(CFLAGS) -o $@ $<
+./build/task/load_tss.o:task/load_tss.S
+	gcc $(CFLAGS) -o $@ $<
+./build/task/%.o:task/%.c
+	gcc $(CFLAGS) -o $@ $<
 
 .PHONY:clean debug run
 clean:
@@ -75,4 +87,4 @@ clean:
 debug:all
 	qemu-system-i386  -smp 1 -m 128M -s -S -drive file=image/disk.img,index=0,media=disk,format=raw -monitor stdio -no-reboot
 run:all
-	qemu-system-i386  -smp 1 -m 128M       -drive file=image/disk.img,index=0,media=disk,format=raw -monitor stdio -no-reboot
+	qemu-system-i386 -display sdl -boot menu=on,splash-time=5000 -smp 1 -m 128M       -drive file=image/disk.img,index=0,media=disk,format=raw -monitor stdio -no-reboot

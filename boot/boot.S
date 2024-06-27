@@ -13,7 +13,7 @@ fat16_header:
     # Byte Offset: 0x003
     .ascii "soOSv1.0"           # OEM名称
     .word 512                   # 每扇区字节数
-    .byte 128                   # 每个簇的扇区数
+    .byte 64                    # 每个簇的扇区数
     .word 200                   # 保留扇区数
     .byte 2                     # FAT表数
     .word 64                    # 根目录项数
@@ -23,7 +23,7 @@ fat16_header:
     .word 0x20                  # 每道扇区数
     .word 64                    # 磁头数
     .long 0                     # 隐藏扇区数
-    .long 0x773594              # 逻辑扇区总数
+    .long 0x400000              # 逻辑扇区总数
 
     # Extended BIOS Parameter Block
     # Byte Offset: 0x024
@@ -192,7 +192,8 @@ NULL_GDT:
 CODE_DESC:
     #小端，高地址到低地址
     #Base=0,G=1,D/B=1,SegLim=0xfffff,P=1,DPL=0,S=1,Type=8(execute only)
-    .quad 0x00cf98000000ffff
+    # Type change to a(Access bit set)
+    .quad 0x00cf9a000000ffff
 DATA_DESC:
     #Type=2(Read/Write)
     .quad 0x00cf92000000ffff
