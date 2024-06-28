@@ -56,7 +56,7 @@ void roll_up() {
     }
     uint16_t cursor = (VGA_HEIGHT - 1) * VGA_WIDTH;
     for (int i = 0;i < VGA_WIDTH;++i) {
-        write_video(++cursor,0);
+        write_video(cursor++,0);
     }
 }
 
@@ -141,6 +141,19 @@ void put_uint(unsigned int num) {
         if (show[j]) {
             put_char(show[j]);
         }    
+    }
+}
+void put_uinth(unsigned int num) {
+    static char digits[] = "0123456789ABCDEF";
+    char show[8] = { 0 };
+    int i = 8;
+    do {
+        show[--i] = digits[num % 16];
+    } while ((num /= 16) && i);
+    for (int j = 0;j < sizeof show;++j) {
+        if (show[j]) {
+            put_char(show[j]);
+        }
     }
 }
 void clear_screen() {

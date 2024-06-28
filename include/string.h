@@ -2,7 +2,7 @@
 #define __STRING_H
 
 #ifndef NULL
-#define NULL (void*(0))
+#define NULL ((void*)0)
 #endif
 #include"types.h"
 size_t strlen(const char* str);
@@ -19,4 +19,11 @@ int strcmp_prefix_ignore_case(const char* str1, const char* str2, size_t n);
 void* memcpy(void* dest, const void* src, size_t count);
 void* memset(void* str, int c, size_t n);
 int memcmp(const void* str1, const void* str2, size_t n);
+
+size_t strspn(const char* str, const char* strSet);
+size_t strcspn(const char* str, const char* strSet);
+char* strchr(const char* s, char c);
+char* strpbrk(const char* str, const char* strSet);
+char* strtok(char* str, const char* delim);
+char* strtok_s(char* str, const char* delim, char** context);
 #endif
