@@ -94,6 +94,7 @@ struct fat16_directory{
 
 /** 
  * A fat16_item represents a file or directory
+ * Wrapper for fat16_entry and fat16_directory
  * @param directory struct fat16_directory* - The directory that the item is pointing to(union shared with entry)
  * @param entry struct fat16_entry* - The entry that the item is pointing to(union shared with directory)
  * @param type FAT16_ITEM_TYPE - The type of the item
@@ -214,6 +215,9 @@ int get_total_entries(struct disk* disk, u32 start_sector)
     return cnt;
 }
 
+/**
+ * @brief Get the root directory into memory
+ */
 int get_root_dir(struct disk* disk, struct fat16_data* data, struct fat16_directory* directory)
 {
     struct fat16_fs_info* header = &data->header;
@@ -336,6 +340,12 @@ void get_full_filename(struct fat16_entry* entry, char* out, int max_len)
     }
 }
 
+/**
+ * @brief Clone a fat16 entry
+ * @param[in] entry struct fat16_entry* - The fat16 entry to clone
+ * @param[in] size int - The size of the entry to clone
+ * @return struct fat16_entry* - The cloned fat16 entry
+ */
 struct fat16_entry* clone_fat16_entry(struct fat16_entry* entry, int size)
 {
     struct fat16_entry* entry_clone = 0;
@@ -390,9 +400,12 @@ static u32 get_first_sector(struct fat16_data* data)
 }
 
 /**
- * @brief get the
+ * @brief get the FAT entry for the specified cluster number
+ * @param disk struct disk* - The disk that the filesystem is on
+ * @param cluster int - The cluster to get the entry from
+ * @return u16 - The FAT entry at the specified cluster
  */
-static int get_entry(struct disk* disk, int cluster)
+static u16 get_entry(struct disk* disk, int cluster)
 {
     struct fat16_data* data = (struct fat16_data*)disk->data;
     struct disk_stream* stream = data->read_fat_streamer;
@@ -401,7 +414,9 @@ static int get_entry(struct disk* disk, int cluster)
         return -EIO;
     }
 
-    u32 fat_position = data->header.header.reserved_sectors * disk->sector_size;
+    u32 fat_position = data->header.header.reserved_sectors * disk->sector_size; // Get the position of FAT area
+
+    // Position the FAT entry for the specified cluster
     if(seek_disk_stream(stream, fat_position + (cluster * FAT16_ENRTY_SIZE)) != 0) // MOD: fat_pos + (xxx)
     {
         return -EIO;
@@ -409,6 +424,7 @@ static int get_entry(struct disk* disk, int cluster)
 
     u16 result = 0;
 
+    // Get the FAT entry
     if(read_disk_stream(stream, sizeof(u16), &result) !=0){
         return -EIO;
     }
@@ -428,10 +444,10 @@ static int get_cluster_for_offset(struct disk* disk, int starting_cluster, int o
     struct fat16_data* data = disk->data;
     int cluster_size = data->header.header.sectors_per_cluster * disk->sector_size;
     int cluster_to_use = starting_cluster;
-    int clusters_ahead = offset / cluster_size;
+    int clusters_ahead = offset / cluster_size; // Get the number of clusters ahead to read
     for (int i = 0; i < clusters_ahead; i++)
     {
-        int entry = get_entry(disk, cluster_to_use);
+        u16 entry = get_entry(disk, cluster_to_use);
         if (entry == 0xFF8 || entry == 0xFFF) // Last entry in the file
         {
             return -EIO;
@@ -456,7 +472,7 @@ static int get_cluster_for_offset(struct disk* disk, int starting_cluster, int o
 }
 
 /**
- * @brief Read data from a stream
+ * @brief Read data from a cluster stream, the lower implementation of read_internal_data
  * @param disk struct disk* - The disk that the filesystem is on
  * @param stream struct disk_stream* - The stream to read from
  * @param cluster int - The cluster to read from
@@ -591,6 +607,13 @@ struct fat16_directory* load_fat16_directory(struct disk* disk, struct fat16_ent
     return dir;
 }
 
+/**
+ * @brief Create a fat16 item(For fat16_filedescriptor) for a directory
+ * @param disk struct disk* - The disk that the filesystem is on
+ * @param entry struct fat16_entry* - The entry to create the item from
+ * @return struct fat16_item* - The created item
+ 
+ */
 struct fat16_item* create_fat_item_for_directory(struct disk* disk, struct fat16_entry* entry)
 {
     struct fat16_item* item = (struct fat16_item*)kmalloc(sizeof(struct fat16_item));
@@ -601,10 +624,10 @@ struct fat16_item* create_fat_item_for_directory(struct disk* disk, struct fat16
     if(entry->attr & FAT16_FILE_SUBDIRECTORY)
     {
         item->type = FAT16_ITEM_TYPE_DIRECTORY;
-        item->directory = load_fat16_directory(disk, entry);
+        item->directory = load_fat16_directory(disk, entry); // Load in the directory
     } else {
         item->type = FAT16_ITEM_TYPE_FILE;
-        item->entry = clone_fat16_entry(entry, sizeof(struct fat16_entry));
+        item->entry = clone_fat16_entry(entry, sizeof(struct fat16_entry)); // Clone the file entry into the item structure
     }
 
     return item;
@@ -673,6 +696,14 @@ struct fat16_item* get_root_directory_item(struct disk* disk, struct path_part* 
     return current; // Return the current item
 }
 
+/**
+ * @brief Fat16 filesystem's open method for opening a file, returns its file descriptor
+ * @param disk struct disk* - The disk that the filesystem is on
+ * @param path struct path_part* - The path to the file
+ * @param mode FILE_OPEN_MODE - The mode to open the file in(not implemented yet)
+ * @return void* - The file descriptor of the opened file(fat16_file_descriptor*)
+ 
+ */
 void* fat16_open_file(struct disk* disk, struct path_part* path, FILE_OPEN_MODE mode)
 {
     struct fat16_item* item = get_root_directory_item(disk, path); // Get the item in the root directory
@@ -700,6 +731,16 @@ void* fat16_open_file(struct disk* disk, struct path_part* path, FILE_OPEN_MODE 
     return fd;
 }
 
+/**
+ * @brief FAT16's read method for reading a file
+ * @param disk struct disk* - The disk that the filesystem is on
+ * @param fd void* - The file descriptor of the file to read
+ * @param size u32 - The size of each read
+ * @param nb u32 - The number of reads
+ * @param out char* - The output buffer to store the read data
+ * @return int - The number of reads that were successful
+
+ */
 int fat16_read_file(struct disk* disk, void* fd, u32 size, u32 nb, char* out)
 {
     struct fat16_file_descriptor* descriptor = (struct fat16_file_descriptor*)fd;
@@ -719,6 +760,11 @@ int fat16_read_file(struct disk* disk, void* fd, u32 size, u32 nb, char* out)
     return nb;
 }
 
+/**
+ * @brief Free a fat16 file descriptor
+ * @param desc struct fat16_file_descriptor* - The file descriptor to free
+
+ */
 static void fat16_free_file_descriptor(struct fat16_file_descriptor* desc)
 {
     free_fat16_item(desc->item);
@@ -748,6 +794,11 @@ int fat16_stat(struct disk* disk, void* private, struct file_stat* stat)
     return 0;
 }
 
+/**
+ * @brief FAT16's close method for closing a file
+ * @param private void* - The file descriptor of the file to close
+ * @return int - 0 if the file is closed successfully
+ */
 int fat16_close(void* private)
 {
     fat16_free_file_descriptor((struct fat16_file_descriptor*) private);
